@@ -1,11 +1,10 @@
 <% if @chart_type %>
-  <% chart_data = @rows.map do |row|
-        {
-          name: row.first, 
-          data: @columns[2..-1].each_with_index.map { |col, i| [col, row[i + 1]] }
-        }
-    end %>
-  <%= line_chart chart_data %>
+  <% chart_options = {id: SecureRandom.hex} %>
+  <% if @chart_type == 'line'%>
+    <%= line_chart cohort_line_chart_data, **chart_options %>
+  <% elsif @chart_type == 'bar'%>
+    <%= column_chart cohort_stacked_column_chart_data, stacked: true, **chart_options %>
+  <% end %>
 <% end %>
 
 <% unless @only_chart %>
@@ -44,10 +43,38 @@
               </td>
             <% end %>
           </tr>
-        <% end %>
-      </tbody>
-    </table>
-  </div>
-<% elsif @only_chart %>
-  <p class="text-muted">No cohorts</p>
+        </thead>
+        <tbody>
+          <% @rows.each do |row| %>
+            <% denom = row[1] %>
+            <tr>
+              <td>
+                <%= row[0] %>
+                <div style="font-size: 12px; color: #999;"><%= denom == 1 ? "1 user" : "#{number_with_delimiter(denom)} users" %></div>
+              </td>
+              <% @cohort_period_cols.times do |i| %>
+                <td style="text-align: right;">
+                  <% num = row[i + 2] %>
+                  <% if num && !num.zero? %>
+                    <% if @statement.cohort_analysis_right_aligned? %>
+                      <% primary = number_with_delimiter(num) %>
+                      <% secondary = denom > 0 ? "#{(100.0 * num / denom).round}%" : "-" %>
+                    <% else %>
+                      <% primary = denom > 0 ? "#{(100.0 * num / denom).round}%" : "-" %>
+                      <% secondary = number_with_delimiter(num) %>
+                    <% end %>
+                    
+                    <%= primary %>
+                    <div style="font-size: 12px; color: #999;"><%= secondary %></div>
+                  <% else %>
+                    -
+                  <% end %>
+                </td>
+              <% end %>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+  <% end %>
 <% end %>
