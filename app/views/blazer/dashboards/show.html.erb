@@ -41,6 +41,7 @@
   <script>
     <% data = {statement: query.statement, query_id: query.id, data_source: query.data_source, variables: variable_params(query), only_chart: true} %>
     <% data.merge!(cohort_period: params[:cohort_period]) if params[:cohort_period] %>
+    <% data.merge!(cohort_shape: params[:cohort_shape]) if params[:cohort_shape] %>
     <%= blazer_js_var "data", data %>
 
     runQuery(data, function (data) {
