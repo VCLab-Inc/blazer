@@ -46,17 +46,8 @@ module Blazer
     end
 
     def cohort_analysis?
-      # cohort_analysis_left_aligned? || cohort_analysis_right_aligned?
       @cohort_analysis ||= /\/\*\s*cohort analysis\s*\*\//i.match?(statement)
     end
-
-    # def cohort_analysis_left_aligned?
-    #   @cohort_analysis_left_aligned ||= /\/\*\s*cohort analysis\s*\*\//i.match?(statement)
-    # end
-
-    # def cohort_analysis_right_aligned?
-    #   @cohort_analysis_right_aligned ||= /\/\*\s*cohort analysis right align\s*\*\//i.match?(statement)
-    # end
 
     def apply_cohort_analysis(period:, days:, cohort_shape:)
       @cohort_shape = cohort_shape
