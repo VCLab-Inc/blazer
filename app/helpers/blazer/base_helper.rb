@@ -60,7 +60,7 @@ module Blazer
         {
           name: row[0], 
           data: @columns[0..-1].each_with_index.map { |col, index| 
-            [col + ":", ((row[index + 2] * 100.0) / denom).round(1)] if row[index + 2]&.present?
+            [col[0] + ":", ((row[index + 2] * 100.0) / denom).round(1)] if row[index + 2]&.present?
           }.compact
         }
       end
@@ -74,24 +74,7 @@ module Blazer
       existing_volumes = []
 
       @columns.each do |column|
-        stacked_data[column] = {"New" => 0, "Existing" => 0}
-      end
-
-      @rows.each do |row|
-        new_volume_added = false
-
-        row[2..-1].each_with_index do |value, index|
-          period = @columns[index]
-
-          if value > 0
-            if !new_volume_added
-              stacked_data[period]["New"] += value
-              new_volume_added = true
-            else
-              stacked_data[period]["Existing"] += value
-            end
-          end
-        end
+        stacked_data[column[0]] = {"New" => column[1], "Existing" => column[2]}
       end
 
       stacked_data.each do |period, volumes|

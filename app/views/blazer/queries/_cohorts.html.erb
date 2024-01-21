@@ -20,7 +20,7 @@
           <tr>
             <th style="min-width: 100px;">Cohort</th>
             <% @columns.each do |column| %>
-              <th style="width: 10%; text-align: right;"><%= column %></th>
+              <th style="width: 10%; text-align: right;"><%= column[0] %></th>
             <% end %>
           </tr>
         </thead>
@@ -31,7 +31,7 @@
                 <%= row[0] %>
                 <div style="font-size: 12px; color: #999;"><%= row[1] == 1 ? "1 user" : "#{number_with_delimiter(row[1])} users" %></div>
               </td>
-              <% @cohort_period_cols.times do |index| %>
+              <% @columns.size.times do |index| %>
                 <% primary, secondary, enom, denom = primary_secondary_values(row, index) %>
                 <td style="text-align: right;">
                   <% if enom && !enom.zero? %>
@@ -45,6 +45,35 @@
             </tr>
           <% end %>
         </tbody>
+        <tfoot style="border-top: 2px solid #3333;">
+          <% if @cohort_shape == "right aligned" %>
+            <tr>
+              <th>New</th>
+              <% @columns.each do |column| %>
+                <td style="text-align: right;"><%= number_with_delimiter(column[1])%></td>
+              <% end %>
+            </tr>
+            <tr>
+              <th>Existing</th>
+              <% @columns.each do |column| %>
+                <td style="text-align: right;"><%= number_with_delimiter(column[2]) %></td>
+              <% end %>
+            </tr>
+            <tr>
+              <th>Total</th>
+              <% @columns.each do |column| %>
+                <td style="text-align: right;"><%= number_with_delimiter(column[1] + column[2]) %></td>
+              <% end %>
+            </tr>
+          <% elsif @cohort_shape == "left aligned" %>
+            <tr>
+              <th>Average</th>
+              <% @columns.each do |column| %>
+                <td style="text-align: right;"><%= number_with_delimiter(column[1]) %></td>
+              <% end %>
+            </tr>
+          <% end %>
+        </tfoot>
       </table>
     </div>
   <% end %>

@@ -95,7 +95,6 @@ module Blazer
       @cohort_period = "quarter" unless ["day", "week", "month", "quarter"].include?(@cohort_period)
 
       # for now
-      @conversion_period = @cohort_period
       @cohort_days =
         case @cohort_period
         when "day"
