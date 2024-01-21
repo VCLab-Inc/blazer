@@ -77,23 +77,6 @@ module Blazer
         stacked_data[column[0]] = {"New" => column[1], "Existing" => column[2]}
       end
 
-      # @rows.each do |row|
-      #   new_volume_added = false
-
-      #   row[2..-1].each_with_index do |value, index|
-      #     period = @columns[index]
-
-      #     if value > 0
-      #       if !new_volume_added
-      #         stacked_data[period]["New"] += value
-      #         new_volume_added = true
-      #       else
-      #         stacked_data[period]["Existing"] += value
-      #       end
-      #     end
-      #   end
-      # end
-
       stacked_data.each do |period, volumes|
         new_volumes << [period, volumes["New"]]
         existing_volumes << [period, volumes["Existing"]]
