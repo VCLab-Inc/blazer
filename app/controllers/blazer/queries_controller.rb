@@ -437,7 +437,7 @@ module Blazer
           filtered_rows = @rows.select { |row| row[0] == cohort_date }
           next unless filtered_rows.any?
 
-          row = [@columns[index][0], filtered_rows[0][2] || 0]
+          row = [cohort_date.strftime(@date_format), filtered_rows[0][2] || 0]
           row += (@columns.size - filtered_rows.size).times.map { 0 } if @cohort_shape == "right aligned"
 
           filtered_rows.size.times do |i|
