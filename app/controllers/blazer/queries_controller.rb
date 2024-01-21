@@ -428,18 +428,17 @@ module Blazer
         end
       else
         @today = Blazer.time_zone.today
+        @date_format = @cohort_period == "month" ? "%b %Y" : "%b %-e, %Y"
         @cohort_dates = @rows.map { |row| [row[0], row[1]] }.flatten.uniq.sort # include cohort dates from both period and conversion
-        @cohort_period_cols = @cohort_dates.size
-        date_format = @cohort_period == "month" ? "%b %Y" : "%b %-e, %Y"
-        @columns = cohort_columns_by_shape(date_format)
+        @columns = cohort_columns_by_shape
         rows = []
 
-        @cohort_dates.each do |date|
-          filtered_rows = @rows.select { |row| row[0] == date }
+        @cohort_dates.each_with_index do |cohort_date, index|
+          filtered_rows = @rows.select { |row| row[0] == cohort_date }
           next unless filtered_rows.any?
 
-          row = [date.strftime(date_format), filtered_rows[0][2] || 0]
-          row += (@cohort_dates.size - filtered_rows.size).times.map { 0 } if @cohort_shape == "right aligned"
+          row = [@columns[index][0], filtered_rows[0][2] || 0]
+          row += (@columns.size - filtered_rows.size).times.map { 0 } if @cohort_shape == "right aligned"
 
           filtered_rows.size.times do |i|
             row << (filtered_rows[i] ? filtered_rows[i][2] : 0)
@@ -449,18 +448,37 @@ module Blazer
         end
 
         @rows = rows
+        cohort_columns_rollup
       end
     end
 
-    def cohort_columns_by_shape(date_format)
-      return unless @cohort_shape
-      
+    def cohort_columns_by_shape
+      return unless @cohort_dates && @cohort_period && @cohort_shape
+
       if @cohort_shape == "right aligned"
-        @cohort_dates.map { |date| date.strftime(date_format) }
+        @cohort_dates.map { |date| [date.strftime(@date_format)] }
       elsif @cohort_shape == "left aligned"
-        @cohort_period_cols.times.map { |i| "#{@conversion_period.titleize} #{i + 1}" }
+        @cohort_dates.size.times.map { |i| ["#{@cohort_period.titleize} #{i + 1}"] }
       end
     end
 
+    def cohort_columns_rollup
+      if @cohort_shape == "right aligned"
+        @rows.each_with_index do |row, index|
+          new_value = row[index + 2]
+          existing_value = @rows.map { |row| row[index + 2] }
+          existing_value.delete_at(index)
+          existing_value = existing_value.sum
+          @columns[index] << new_value << existing_value
+        end
+      elsif @cohort_shape == "left aligned"
+        @rows.each_with_index do |row, index|
+          total_value = @rows[0..-1 - index].map { |row| row[2] }.sum
+          period_value = @rows[0..-1 - index].map { |row| row[index + 2] }.compact.sum
+          avg_value = total_value > 0 ? "#{(period_value * 100.0 / total_value).round}%" : 0
+          @columns[index] << avg_value
+        end
+      end
+    end
   end
 end
