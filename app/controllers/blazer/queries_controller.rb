@@ -454,8 +454,8 @@ module Blazer
         rows << arr_row
 
         @rows = rows
-        cohort_columns_by_shape
         cohort_columns_rollup
+        cohort_columns_by_shape
       end
     end
 
@@ -495,11 +495,11 @@ module Blazer
         end
 
       elsif @cohort_shape == "left aligned" # calculate the percentage of the cohort total for each period
-        @rows.each_with_index do |row, index|
-          total_value = @rows[0..index].map { |row| row[1] }.sum
-          period_value = @rows[0..index].map { |row| row[index + 2] }.compact.sum
+        @columns.each_with_index do |column, column_index|
+          total_value = @rows[0..column_index].map { |row| row[1] if row[0] <= column[0] }.compact.sum
+          period_value = @rows[0..column_index].map { |row| row[column_index + 2] if row[0] <= column[0] }.compact.sum
           avg_value = total_value > 0 ? "#{(period_value * 100.0 / total_value).round}%" : 0
-          @columns[index] << avg_value
+          @columns[column_index] << avg_value
         end
       end
     end
