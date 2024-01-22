@@ -427,54 +427,81 @@ module Blazer
           end
         end
       else
-        @today = Blazer.time_zone.today
-        @date_format = @cohort_period == "month" ? "%b %Y" : "%b %-e, %Y"
-        @cohort_dates = @rows.map { |row| [row[0], row[1]] }.flatten.uniq.sort # include cohort dates from both period and conversion
-        @columns = cohort_columns_by_shape
+        @columns = @rows.map { |row| [row[0], row[1]] }.flatten.uniq.sort.map { |date| [date] } # include dates from both cohort and period
         rows = []
 
-        @cohort_dates.each_with_index do |cohort_date, index|
-          filtered_rows = @rows.select { |row| row[0] == cohort_date }
-          next unless filtered_rows.any?
+        cohort_date = nil
+        arr_row = []
+        left_align_column_index = nil
+        @rows.each do |row|
+          period_date = row[1]
+          cohort_period_value = row[2]
 
-          row = [cohort_date.strftime(@date_format), filtered_rows[0][2] || 0]
-          row += (@columns.size - filtered_rows.size).times.map { 0 } if @cohort_shape == "right aligned"
+          if cohort_date != row[0]
+            # interim row is complete, add it to the rows array
+            rows << arr_row if cohort_date.present?
 
-          filtered_rows.size.times do |i|
-            row << (filtered_rows[i] ? filtered_rows[i][2] : 0)
+            left_align_column_index = 0
+            cohort_date = row[0]
+            arr_row = [cohort_date, cohort_period_value]
+            arr_row += @columns.size.times.map { 0 } if @cohort_shape == "right aligned"
           end
-
-          rows << row
+          
+          if @cohort_shape == "right aligned"
+            period_index = @columns.index([period_date])
+            arr_row[period_index + 2] = row[2] if period_index.present?
+          elsif @cohort_shape == "left aligned"
+            arr_row[left_align_column_index + 2] = row[2]
+            left_align_column_index += 1
+          end
         end
+        rows << arr_row
 
         @rows = rows
+        cohort_columns_by_shape
         cohort_columns_rollup
       end
     end
 
     def cohort_columns_by_shape
-      return unless @cohort_dates && @cohort_period && @cohort_shape
+      return unless @cohort_period && @cohort_shape
 
-      if @cohort_shape == "right aligned"
-        @cohort_dates.map { |date| [date.strftime(@date_format)] }
-      elsif @cohort_shape == "left aligned"
-        @cohort_dates.size.times.map { |i| ["#{@cohort_period.titleize} #{i + 1}"] }
+      @date_format = @cohort_period == "month" ? "%b %Y" : "%b %-e, %Y"
+
+      @rows.each do |row|
+        row[0] = row[0].strftime(@date_format)
+      end
+
+      @columns.each_with_index do |column, column_index|
+        column[0] = column[0].strftime(@date_format) if @cohort_shape == "right aligned"
+        column[0] = "#{@cohort_period.titleize} #{column_index + 1}" if @cohort_shape == "left aligned"
       end
     end
 
     def cohort_columns_rollup
-      if @cohort_shape == "right aligned"
-        @rows.each_with_index do |row, index|
-          new_value = row[index + 2]
-          existing_value = @rows.map { |row| row[index + 2] }
-          existing_value.delete_at(index)
+      if @cohort_shape == "right aligned" # calculate the new and existing totals for each period
+        @columns.each_with_index do |column, column_index|
+          row_index = @rows.find_index { |row| row[0] == column[0] }
+          
+          if row_index.present?
+            value_index = @rows[row_index][2..-1].find_index { |value| value != 0 }
+            new_value = @rows[row_index][value_index + 2]
+            existing_value = @rows.map { |row| row[value_index + 2] }
+            existing_value.delete_at(row_index) # remove the new value from the existing values
+          else
+            new_value = 0
+            existing_value = @rows.map { |row| row[column_index + 2] }
+          end
+          
           existing_value = existing_value.sum
-          @columns[index] << new_value << existing_value
+
+          column << new_value << existing_value
         end
-      elsif @cohort_shape == "left aligned"
+
+      elsif @cohort_shape == "left aligned" # calculate the percentage of the cohort total for each period
         @rows.each_with_index do |row, index|
-          total_value = @rows[0..-1 - index].map { |row| row[2] }.sum
-          period_value = @rows[0..-1 - index].map { |row| row[index + 2] }.compact.sum
+          total_value = @rows[0..index].map { |row| row[1] }.sum
+          period_value = @rows[0..index].map { |row| row[index + 2] }.compact.sum
           avg_value = total_value > 0 ? "#{(period_value * 100.0 / total_value).round}%" : 0
           @columns[index] << avg_value
         end
