@@ -441,25 +441,21 @@ module Blazer
             # interim row is complete, add it to the rows array
             rows << arr_row if cohort_date.present?
 
-            left_align_column_index = 0
             cohort_date = row[0]
             arr_row = [cohort_date, cohort_period_value]
             arr_row += @columns.size.times.map { 0 } if @cohort_shape == "right aligned"
+            left_align_column_index = @columns.index([cohort_date]) if @cohort_shape == "left aligned"
           end
           
-          if @cohort_shape == "right aligned"
-            period_index = @columns.index([period_date])
-            arr_row[period_index + 2] = row[2] if period_index.present?
-          elsif @cohort_shape == "left aligned"
-            arr_row[left_align_column_index + 2] = row[2]
-            left_align_column_index += 1
-          end
+          period_index = @columns.index([period_date])
+          period_index = period_index - left_align_column_index if @cohort_shape == "left aligned"
+          arr_row[period_index + 2] = row[2] if period_index.present?
         end
         rows << arr_row
 
         @rows = rows
-        cohort_columns_by_shape
         cohort_columns_rollup
+        cohort_columns_by_shape
       end
     end
 
@@ -499,11 +495,11 @@ module Blazer
         end
 
       elsif @cohort_shape == "left aligned" # calculate the percentage of the cohort total for each period
-        @rows.each_with_index do |row, index|
-          total_value = @rows[0..index].map { |row| row[1] }.sum
-          period_value = @rows[0..index].map { |row| row[index + 2] }.compact.sum
+        @columns.each_with_index do |column, column_index|
+          total_value = @rows[0..column_index].map { |row| row[1] if row[0] <= column[0] }.compact.sum
+          period_value = @rows[0..column_index].map { |row| row[column_index + 2] if row[0] <= column[0] }.compact.sum
           avg_value = total_value > 0 ? "#{(period_value * 100.0 / total_value).round}%" : 0
-          @columns[index] << avg_value
+          @columns[column_index] << avg_value
         end
       end
     end
