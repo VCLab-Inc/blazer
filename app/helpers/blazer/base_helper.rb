@@ -54,6 +54,7 @@ module Blazer
     end
 
     def cohort_line_chart_data
+      
       return_me = @rows.map do |row|
         denom = row[1]
 
