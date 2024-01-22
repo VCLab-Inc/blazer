@@ -459,21 +459,6 @@ module Blazer
       end
     end
 
-    def cohort_columns_by_shape
-      return unless @cohort_period && @cohort_shape
-
-      @date_format = @cohort_period == "month" ? "%b %Y" : "%b %-e, %Y"
-
-      @rows.each do |row|
-        row[0] = row[0].strftime(@date_format)
-      end
-
-      @columns.each_with_index do |column, column_index|
-        column[0] = column[0].strftime(@date_format) if @cohort_shape == "right aligned"
-        column[0] = "#{@cohort_period.titleize} #{column_index + 1}" if @cohort_shape == "left aligned"
-      end
-    end
-
     def cohort_columns_rollup
       if @cohort_shape == "right aligned" # calculate the new and existing totals for each period
         @columns.each_with_index do |column, column_index|
@@ -496,11 +481,26 @@ module Blazer
 
       elsif @cohort_shape == "left aligned" # calculate the percentage of the cohort total for each period
         @columns.each_with_index do |column, column_index|
-          total_value = @rows[0..column_index].map { |row| row[1] if row[0] <= column[0] }.compact.sum
-          period_value = @rows[0..column_index].map { |row| row[column_index + 2] if row[0] <= column[0] }.compact.sum
+          total_value = @rows[0..-1 - column_index].map { |row| row[1] if row[0] <= column[0] }.compact.sum
+          period_value = @rows[0..-1 - column_index].map { |row| row[column_index + 2] if row[0] <= column[0] }.compact.sum
           avg_value = total_value > 0 ? "#{(period_value * 100.0 / total_value).round}%" : 0
           @columns[column_index] << avg_value
         end
+      end
+    end
+
+    def cohort_columns_by_shape
+      return unless @cohort_period && @cohort_shape
+
+      @date_format = @cohort_period == "month" ? "%b %Y" : "%b %-e, %Y"
+
+      @rows.each do |row|
+        row[0] = row[0].strftime(@date_format)
+      end
+
+      @columns.each_with_index do |column, column_index|
+        column[0] = column[0].strftime(@date_format) if @cohort_shape == "right aligned"
+        column[0] = "#{@cohort_period.titleize} #{column_index + 1}" if @cohort_shape == "left aligned"
       end
     end
   end
