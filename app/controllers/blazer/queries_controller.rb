@@ -441,19 +441,15 @@ module Blazer
             # interim row is complete, add it to the rows array
             rows << arr_row if cohort_date.present?
 
-            left_align_column_index = 0
             cohort_date = row[0]
             arr_row = [cohort_date, cohort_period_value]
             arr_row += @columns.size.times.map { 0 } if @cohort_shape == "right aligned"
+            left_align_column_index = @columns.index([cohort_date]) if @cohort_shape == "left aligned"
           end
           
-          if @cohort_shape == "right aligned"
-            period_index = @columns.index([period_date])
-            arr_row[period_index + 2] = row[2] if period_index.present?
-          elsif @cohort_shape == "left aligned"
-            arr_row[left_align_column_index + 2] = row[2]
-            left_align_column_index += 1
-          end
+          period_index = @columns.index([period_date])
+          period_index = period_index - left_align_column_index if @cohort_shape == "left aligned"
+          arr_row[period_index + 2] = row[2] if period_index.present?
         end
         rows << arr_row
 
