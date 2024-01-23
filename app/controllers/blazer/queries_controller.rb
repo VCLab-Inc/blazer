@@ -435,21 +435,22 @@ module Blazer
         left_align_column_index = nil
         @rows.each do |row|
           period_date = row[1]
-          cohort_period_value = row[2]
+          cohort_period_count = row[2]
+          cohort_period_sum = row[3].nil? ? row[2] : row[3]
 
           if cohort_date != row[0]
             # interim row is complete, add it to the rows array
             rows << arr_row if cohort_date.present?
 
             cohort_date = row[0]
-            arr_row = [cohort_date, cohort_period_value]
+            arr_row = [cohort_date, cohort_period_count]
             arr_row += @columns.size.times.map { 0 } if @cohort_shape == "right aligned"
             left_align_column_index = @columns.index([cohort_date]) if @cohort_shape == "left aligned"
           end
           
           period_index = @columns.index([period_date])
           period_index = period_index - left_align_column_index if @cohort_shape == "left aligned"
-          arr_row[period_index + 2] = row[2] if period_index.present?
+          arr_row[period_index + 2] = cohort_period_sum if period_index.present?
         end
         rows << arr_row
 

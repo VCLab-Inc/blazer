@@ -36,11 +36,11 @@ module Blazer
       k.nil? ? "null" : k.to_s
     end
 
-    def primary_secondary_values(row, index)
+    def primary_secondary_values(row, row_index, column_index)
       return unless row.is_a?(Array) && row.size >= 2
 
-      enom = row[index + 2] || 0
-      denom = row[1]
+      enom = row[column_index + 2] || 0
+      denom = row[row_index + 2]
 
       if @cohort_shape == "right aligned"
         primary = number_with_delimiter(enom)
