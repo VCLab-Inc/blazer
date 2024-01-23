@@ -142,6 +142,10 @@ module Blazer
         raise "Cohort analysis not supported" unless supports_cohort_analysis?
 
         cohort_column = statement =~ /\bcohort_time\b/ ? "cohort_time" : "conversion_time"
+        if statement =~ /\bsum_value\b/
+          sum_column = "sum_value, "
+          count_or_sum_sql = ", SUM(ud.sum_value) AS period_bucket_value"
+        end
         tzname = Blazer.time_zone.tzinfo.name
 
         if mysql?
@@ -178,13 +182,15 @@ module Blazer
           ),
           user_detail AS (
             SELECT #{date_sql} AS conversion_date,
+              #{sum_column}
               user_id
             FROM query
             ORDER BY 2, 1
           )
           SELECT mud.cohort_date AS period,
             ud.conversion_date AS period_bucket,
-            COUNT(DISTINCT ud.user_id) AS period_bucket_size
+            COUNT(DISTINCT ud.user_id) AS period_bucket_count
+            #{count_or_sum_sql}
           FROM min_user_date mud
             JOIN user_detail ud ON mud.user_id = ud.user_id
           GROUP BY 1, 2

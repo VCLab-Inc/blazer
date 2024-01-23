@@ -25,14 +25,14 @@
           </tr>
         </thead>
         <tbody>
-          <% @rows.each do |row| %>
+          <% @rows.each_with_index do |row, row_index| %>
             <tr>
               <td>
                 <%= row[0] %>
-                <div style="font-size: 12px; color: #999;"><%= row[1] == 1 ? "1 user" : "#{number_with_delimiter(row[1])} users" %></div>
+                <div style="font-size: 12px; color: #999;">Cohort size: <%= row[1] == 1 ? "1" : "#{number_with_delimiter(row[1])}" %></div>
               </td>
-              <% @columns.size.times do |index| %>
-                <% primary, secondary, enom, denom = primary_secondary_values(row, index) %>
+              <% @columns.size.times do |column_index| %>
+                <% primary, secondary, enom, denom = primary_secondary_values(row, row_index, column_index) %>
                 <td style="text-align: right;">
                   <% if enom && !enom.zero? %>
                     <%= primary %>
