@@ -40,14 +40,17 @@ module Blazer
       return unless row.is_a?(Array) && row.size >= 2
 
       enom = row[column_index + 2] || 0
-      denom = row[row_index + 2]
-
+      
       if @cohort_shape == "right aligned"
+        denom = row[row_index + 2]
         primary = number_with_delimiter(enom)
         secondary = denom > 0 ? "#{(100.0 * enom / denom).round}%" : "-"
       elsif @cohort_shape == "left aligned"
+        denom = row[2]
         primary = denom > 0 ? "#{(100.0 * enom / denom).round}%" : "-"
         secondary = number_with_delimiter(enom)
+      else
+        raise "Unknown cohort shape"
       end
 
       return primary, secondary, enom, denom

@@ -482,7 +482,7 @@ module Blazer
 
       elsif @cohort_shape == "left aligned" # calculate the percentage of the cohort total for each period
         @columns.each_with_index do |column, column_index|
-          total_value = @rows[0..-1 - column_index].map { |row| row[1] if row[0] <= column[0] }.compact.sum
+          total_value = @rows[0..-1 - column_index].map { |row| row[2] if row[0] <= column[0] }.compact.sum
           period_value = @rows[0..-1 - column_index].map { |row| row[column_index + 2] if row[0] <= column[0] }.compact.sum
           avg_value = total_value > 0 ? "#{(period_value * 100.0 / total_value).round}%" : 0
           @columns[column_index] << avg_value
