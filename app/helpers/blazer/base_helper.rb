@@ -35,5 +35,61 @@ module Blazer
     def blazer_series_name(k)
       k.nil? ? "null" : k.to_s
     end
+
+    def primary_secondary_values(row, row_index, column_index)
+      return unless row.is_a?(Array) && row.size >= 2
+
+      enom = row[column_index + 2] || 0
+      
+      if @cohort_shape == "right aligned"
+        denom = row[row_index + 2]
+        primary = number_with_delimiter(enom)
+        secondary = denom > 0 ? "#{(100.0 * enom / denom).round}%" : "-"
+      elsif @cohort_shape == "left aligned"
+        denom = row[2]
+        primary = denom > 0 ? "#{(100.0 * enom / denom).round}%" : "-"
+        secondary = number_with_delimiter(enom)
+      else
+        raise "Unknown cohort shape"
+      end
+
+      return primary, secondary, enom, denom
+    end
+
+    def cohort_line_chart_data
+      
+      return_me = @rows.map do |row|
+        denom = row[1]
+
+        {
+          name: row[0], 
+          data: @columns[0..-1].each_with_index.map { |col, index| 
+            [col[0] + ":", ((row[index + 2] * 100.0) / denom).round(1)] if row[index + 2]&.present?
+          }.compact
+        }
+      end
+
+      return_me
+    end
+
+    def cohort_stacked_column_chart_data
+      stacked_data = {}
+      new_volumes = []
+      existing_volumes = []
+
+      @columns.each do |column|
+        stacked_data[column[0]] = {"New" => column[1], "Existing" => column[2]}
+      end
+
+      stacked_data.each do |period, volumes|
+        new_volumes << [period, volumes["New"]]
+        existing_volumes << [period, volumes["Existing"]]
+      end
+
+      [
+        {name: "Existing", data: existing_volumes},
+        {name: "New", data: new_volumes}
+      ]
+    end
   end
 end

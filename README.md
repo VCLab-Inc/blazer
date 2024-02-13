@@ -226,7 +226,7 @@ You can also use an array or hash for static data and enums.
 
 ```yml
 smart_variables:
-  period: ["day", "week", "month"]
+  period: ["day", "week", "month", "quarter"]
   status: {0: "Active", 1: "Archived"}
 ```
 
@@ -401,15 +401,32 @@ SELECT user_id, created_at AS conversion_time FROM orders
 
 (the first conversion isn’t counted in the first time period with this format)
 
-Or from another time, like sign up:
+Or from another time, like sign up by including the SQL column `cohort_time`:
 
 ```sql
 /* cohort analysis */
 SELECT users.id AS user_id, orders.created_at AS conversion_time, users.created_at AS cohort_time
-FROM users LEFT JOIN orders ON orders.user_id = users.id
+FROM users 
+  LEFT JOIN orders ON orders.user_id = users.id
 ```
 
-This feature requires PostgreSQL or MySQL 8.
+You can show a `SUM` of values in the cohort triangle by including the SQL column `sum_value`:
+
+```sql
+/* cohort analysis */
+SELECT users.id AS user_id, orders.created_at AS conversion_time, orders.order_amount AS sum_value
+FROM users 
+  LEFT JOIN orders ON orders.user_id = users.id
+```
+
+You can also right align the cohort and display values instead of percentages simply by choosing "right aligned" from the smart variables select box at the top of a cohort page.
+
+When you right align a cohort:
+- The dates appear as column names (instead of Week 1, Week 2, ...)
+- The triangle is right aligned instead of left aligned (values push to the right)
+- Values are displayed and percentages are secondary (instead of the opposite)
+
+Cohort analysis requires PostgreSQL or MySQL 8.
 
 ## Anomaly Detection
 

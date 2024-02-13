@@ -1,6 +1,6 @@
 module Blazer
   class Statement
-    attr_reader :statement, :data_source, :bind_statement, :bind_values
+    attr_reader :statement, :data_source, :bind_statement, :bind_values, :cohort_shape
     attr_accessor :values
 
     def initialize(statement, data_source = nil)
@@ -46,10 +46,11 @@ module Blazer
     end
 
     def cohort_analysis?
-      /\/\*\s*cohort analysis\s*\*\//i.match?(statement)
+      @cohort_analysis ||= /\/\*\s*cohort analysis\s*\*\//i.match?(statement)
     end
 
-    def apply_cohort_analysis(period:, days:)
+    def apply_cohort_analysis(period:, days:, cohort_shape:)
+      @cohort_shape = cohort_shape
       @statement = data_source.cohort_analysis_statement(statement, period: period, days: days).sub("{placeholder}") { statement }
     end
 
