@@ -7,7 +7,7 @@ module Blazer
         text =
           if error
             error
-          elsif rows_count > 0 && check_type == "bad_data"
+          elsif (rows_count > 0 && check_type == "bad_data") || check_type == "all_data"
             pluralize(rows_count, "row")
           end
 

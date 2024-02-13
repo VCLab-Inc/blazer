@@ -66,8 +66,10 @@ module Blazer
         end
       end
 
-      # do not notify on creation, except when not passing
-      if (state_was != "new" || state != "passing") && state != state_was
+      # 1. do not notify on creation, except when not passing
+      # 2. notify when state has changed and it is now failing
+      # 3. notify when check_type is "all_data"
+      if (state_was != "new" || state != "passing") && (state != state_was || check_type == 'all_data')
         Blazer::CheckMailer.state_change(self, state, state_was, result.rows.size, message, result.columns, result.rows.first(10).as_json, result.column_types, check_type).deliver_now if emails.present?
         Blazer::SlackNotifier.state_change(self, state, state_was, result.rows.size, message, check_type)
       end
