@@ -49,9 +49,9 @@ module Blazer
             "passing"
           end
         elsif result.rows.any?
-          check_type == "missing_data" ? "passing" : "failing"
+          check_type == "missing_data" || "all_data" ? "passing" : "failing"
         else
-          check_type == "missing_data" ? "failing" : "passing"
+          check_type == "missing_data" || "all_data" ? "failing" : "passing"
         end
 
       self.last_run_at = Time.now if respond_to?(:last_run_at=)
@@ -66,10 +66,7 @@ module Blazer
         end
       end
 
-      # 1. do not notify on creation, except when not passing
-      # 2. notify when state has changed and it is now failing
-      # 3. notify when check_type is "all_data"
-      if (state_was != "new" || state != "passing") && (state != state_was || check_type == 'all_data')
+      if (check_type == 'all_data' && state == "passing") || ((state_was != "new" || state != "passing") && state != state_was)
         Blazer::CheckMailer.state_change(self, state, state_was, result.rows.size, message, result.columns, result.rows.first(10).as_json, result.column_types, check_type).deliver_now if emails.present?
         Blazer::SlackNotifier.state_change(self, state, state_was, result.rows.size, message, check_type)
       end
