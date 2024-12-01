@@ -96,6 +96,7 @@ module Blazer
       @statement = Blazer::Statement.new(params[:statement], @data_source)
       # before process_vars
       @cohort_analysis = @statement.cohort_analysis?
+      @matrix_analysis = @statement.matrix_analysis?
 
       # fallback for now for users with open tabs
       # TODO remove fallback in future version
