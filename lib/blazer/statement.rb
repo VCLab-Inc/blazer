@@ -54,6 +54,10 @@ module Blazer
       @statement = data_source.cohort_analysis_statement(statement, period: period, days: days).sub("{placeholder}") { statement }
     end
 
+    def matrix_analysis?
+      @matrix_analysis ||= /\/\*\s*matrix analysis\s*\*\//i.match?(statement)
+    end
+
     # should probably transform before cohort analysis
     # but keep previous order for now
     def transformed_statement
