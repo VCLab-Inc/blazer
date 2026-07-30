@@ -18,6 +18,7 @@ Gem::Specification.new do |spec|
 
   spec.add_dependency "railties", ">= 7.2"
   spec.add_dependency "activerecord", ">= 7.2"
-  spec.add_dependency "safely_block", ">= 1"
+  # upstream requires >= 1 (which needs Ruby 3.3); API used (Safely.safely, safely/core) is present in 0.4+
+  spec.add_dependency "safely_block", ">= 0.4"
   spec.add_dependency "csv"
 end
