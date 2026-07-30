@@ -2,6 +2,7 @@ require_relative "test_helper"
 
 class CacheTest < ActionDispatch::IntegrationTest
   def setup
+    super
     Rails.cache.clear
   end
 
@@ -24,6 +25,8 @@ class CacheTest < ActionDispatch::IntegrationTest
   end
 
   def test_slow_over_threshold
+    skip unless postgresql?
+
     with_caching({"mode" => "slow", "slow_threshold" => 0.01}) do
       run_query "SELECT pg_sleep(0.01)::text"
       refute_match "Cached", response.body
@@ -42,8 +45,12 @@ class CacheTest < ActionDispatch::IntegrationTest
   private
 
   def with_caching(value)
-    Blazer.data_sources["main"].stub(:cache, value) do
+    data_source = Blazer.data_sources["main"]
+    begin
+      data_source.instance_variable_set(:@cache, value)
       yield
+    ensure
+      data_source.remove_instance_variable(:@cache)
     end
   end
 end

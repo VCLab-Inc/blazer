@@ -1,11 +1,11 @@
 module Blazer
   class Result
-    attr_reader :data_source, :columns, :rows, :error, :forecast_error, :statement
+    attr_reader :data_source, :columns, :rows, :error, :forecast_error
     attr_accessor :cached_at, :just_cached, :statement
 
     def initialize(data_source, columns, rows, error, cached_at, just_cached, statement = nil)
       @data_source = data_source
-      @columns = columns
+      @columns = columns.dup
       @rows = rows
       @error = error
       @cached_at = cached_at
@@ -19,6 +19,21 @@ module Blazer
 
     def cached?
       cached_at.present?
+    end
+
+    def explain
+      # TODO move to data source adapters
+      case @data_source.adapter
+      when "sql"
+        # TODO limit to Postgres and add other databases
+        if @columns == ["QUERY PLAN"]
+          @rows.map { |r| r[0] }.join("\n")
+        end
+      when "druid"
+        if @columns == ["PLAN"] && @rows.size == 1
+          @rows[0][0]
+        end
+      end
     end
 
     def smart_values
@@ -71,9 +86,9 @@ module Blazer
       @chart_type ||= begin
         if column_types.compact.size >= 2 && column_types.compact == ["time"] + (column_types.compact.size - 1).times.map { "numeric" }
           "line"
-        elsif statement.cohort_shape.present? && statement.cohort_shape == "left aligned"
+        elsif statement&.cohort_shape == "left aligned"
           "line"
-        elsif statement.cohort_shape.present? && statement.cohort_shape == "right aligned"
+        elsif statement&.cohort_shape == "right aligned"
           "bar"
         elsif column_types == ["time", "string", "numeric"]
           "line2"
@@ -136,7 +151,7 @@ module Blazer
 
           if chart_type == "line"
             columns[1..-1].each_with_index.each do |k, i|
-              series << {name: k, data: rows.map{ |r| [r[0], r[i + 1]] }}
+              series << {name: k, data: rows.map { |r| [r[0], r[i + 1]] }}
             end
           else
             rows.group_by { |r| v = r[1]; (smart_values[columns[1]] || {})[v.to_s] || v }.each_with_index.map do |(name, v), i|

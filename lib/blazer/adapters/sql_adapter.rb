@@ -21,21 +21,41 @@ module Blazer
         error = nil
 
         begin
-          result = nil
-          in_transaction do
+          types = []
+          in_transaction do |connection|
             set_timeout(data_source.timeout) if data_source.timeout
             binds = bind_params.map { |v| ActiveRecord::Relation::QueryAttribute.new(nil, v, ActiveRecord::Type::Value.new) }
-            result = connection_model.connection.select_all("#{statement} /*#{comment}*/", nil, binds)
+            if sqlite?
+              type_map = connection.send(:type_map)
+              connection.raw_connection.prepare("#{statement} /*#{comment}*/") do |stmt|
+                stmt.bind_params(connection.send(:type_casted_binds, binds))
+                columns = stmt.columns
+                rows = stmt.to_a
+                types = stmt.types.map { |t| type_map.lookup(t) }
+              end
+            else
+              result = connection.select_all("#{statement} /*#{comment}*/", nil, binds)
+              columns = result.columns
+              rows = result.rows
+              if result.column_types.any?
+                types = columns.size.times.map { |i| result.column_types[i] }
+              end
+            end
           end
 
-          columns = result.columns
-          result.rows.each do |untyped_row|
-            rows << (result.column_types.empty? ? untyped_row : columns.each_with_index.map { |c, i| untyped_row[i] && result.column_types[c] ? result.column_types[c].send(:cast_value, untyped_row[i]) : untyped_row[i] })
+          # cast values
+          if types.any?
+            rows =
+              rows.map do |row|
+                row.map.with_index do |v, i|
+                  v && (t = types[i]) ? t.send(:cast_value, v) : v
+                end
+              end
           end
 
           # fix for non-ASCII column names and charts
           if adapter_name == "Trilogy"
-            columns.map! { |k| k.dup.force_encoding(Encoding::UTF_8) }
+            columns = columns.map { |k| k.dup.force_encoding(Encoding::UTF_8) }
           end
         rescue => e
           error = e.message.sub(/.+ERROR: /, "")
@@ -51,7 +71,14 @@ module Blazer
       end
 
       def tables
-        sql = add_schemas("SELECT table_schema, table_name FROM information_schema.tables")
+        sql =
+          if sqlite?
+            "SELECT NULL, name FROM sqlite_master WHERE type IN ('table', 'view') ORDER BY name"
+          elsif postgresql?
+            add_schemas("SELECT * FROM (SELECT table_schema, table_name FROM information_schema.tables UNION ALL SELECT n.nspname AS table_schema, c.relname AS table_name FROM pg_class c INNER JOIN pg_namespace n ON c.relnamespace = n.oid WHERE c.relkind = 'm' AND has_any_column_privilege(c.oid, 'SELECT'))")
+          else
+            add_schemas("SELECT table_schema, table_name FROM information_schema.tables")
+          end
         result = data_source.run_statement(sql, refresh_cache: true)
         if postgresql? || redshift? || snowflake?
           result.rows.sort_by { |r| [r[0] == default_schema ? "" : r[0], r[1]] }.map do |row|
@@ -75,7 +102,14 @@ module Blazer
       end
 
       def schema
-        sql = add_schemas("SELECT table_schema, table_name, column_name, data_type, ordinal_position FROM information_schema.columns")
+        sql =
+          if sqlite?
+            "SELECT NULL, t.name, c.name, c.type, c.cid FROM sqlite_master t INNER JOIN pragma_table_info(t.name) c WHERE t.type IN ('table', 'view')"
+          elsif postgresql?
+            add_schemas("SELECT * FROM (SELECT table_schema, table_name, column_name, data_type, ordinal_position FROM information_schema.columns UNION ALL SELECT n.nspname AS table_schema, c.relname AS table_name, a.attname AS column_name, format_type(a.atttypid, a.atttypmod) AS data_type, a.attnum AS ordinal_position FROM pg_attribute a INNER JOIN pg_class c ON a.attrelid = c.oid INNER JOIN pg_namespace n ON c.relnamespace = n.oid WHERE a.attnum > 0 AND NOT a.attisdropped AND c.relkind = 'm' AND has_column_privilege(c.oid, a.attnum, 'SELECT'))")
+          else
+            add_schemas("SELECT table_schema, table_name, column_name, data_type, ordinal_position FROM information_schema.columns")
+          end
         result = data_source.run_statement(sql)
         result.rows.group_by { |r| [r[0], r[1]] }.map { |k, vs| {schema: k[0], table: k[1], columns: vs.sort_by { |v| v[2] }.map { |v| {name: v[2], data_type: v[3]} }} }.sort_by { |t| [t[:schema] == default_schema ? "" : t[:schema], t[:table]] }
       end
@@ -141,8 +175,8 @@ module Blazer
       def cohort_analysis_statement(statement, period:, days:)
         raise "Cohort analysis not supported" unless supports_cohort_analysis?
 
-        cohort_column = statement =~ /\bcohort_time\b/ ? "cohort_time" : "conversion_time"
-        if statement =~ /\bsum_value\b/
+        cohort_column = statement.match?(/\bcohort_time\b/) ? "cohort_time" : "conversion_time"
+        if statement.match?(/\bsum_value\b/)
           sum_column = "sum_value, "
           count_or_sum_sql = ", SUM(ud.sum_value) AS period_bucket_value"
         end
@@ -174,9 +208,9 @@ module Blazer
             {placeholder}
           ),
           min_user_date AS (
-            SELECT user_id, MIN(#{date_sql}) AS cohort_date 
+            SELECT user_id, MIN(#{date_sql}) AS cohort_date
             FROM query
-            WHERE user_id IS NOT NULL 
+            WHERE user_id IS NOT NULL
               AND #{cohort_column} IS NOT NULL
             GROUP BY 1
           ),
@@ -231,7 +265,7 @@ module Blazer
         connection_model.connection.select_all(statement)
       end
 
-      # seperate from select_all to prevent mysql error
+      # separate from select_all to prevent mysql error
       def execute(statement)
         connection_model.connection.execute(statement)
       end
@@ -271,6 +305,8 @@ module Blazer
             "public"
           elsif sqlserver?
             "dbo"
+          elsif sqlite?
+            nil
           elsif connection_model.respond_to?(:connection_db_config)
             connection_model.connection_db_config.database
           else
@@ -299,8 +335,7 @@ module Blazer
         if postgresql? || redshift?
           execute("SET #{use_transaction? ? "LOCAL " : ""}statement_timeout = #{timeout.to_i * 1000}")
         elsif mysql?
-          # use send as this method is private in Rails 4.2
-          mariadb = connection_model.connection.send(:mariadb?) rescue false
+          mariadb = connection_model.connection.mariadb? rescue false
           if mariadb
             execute("SET max_statement_time = #{timeout.to_i * 1000}")
           else
@@ -316,14 +351,14 @@ module Blazer
       end
 
       def in_transaction
-        connection_model.connection_pool.with_connection do
+        connection_model.connection_pool.with_connection do |connection|
           if use_transaction?
             connection_model.transaction do
-              yield
+              yield connection
               raise ActiveRecord::Rollback
             end
           else
-            yield
+            yield connection
           end
         end
       end

@@ -9,7 +9,20 @@ module AdapterTest
     assert_kind_of Array, tables
   end
 
+  def test_schema
+    get blazer.schema_queries_path(data_source: data_source)
+    assert_response :success
+  end
+
   private
+
+  def ds
+    Blazer.data_sources[data_source]
+  end
+
+  def execute(statement)
+    ds.send(:adapter_instance).send(:execute, statement)
+  end
 
   def tables
     get blazer.tables_queries_path(data_source: data_source)

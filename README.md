@@ -4,7 +4,7 @@ Explore your data with SQL. Easily create charts and dashboards, and share them 
 
 [Try it out](https://blazer.dokkuapp.com)
 
-[![Screenshot](https://blazer.dokkuapp.com/assets/blazer-a10baa40fef1ca2f5bb25fc97bcf261a6a54192fb1ad0f893c0f562b8c7c4697.png)](https://blazer.dokkuapp.com)
+[![Screenshot](https://blazer.dokkuapp.com/assets/blazer-176c595c.png)](https://blazer.dokkuapp.com)
 
 Blazer is also available as a [Docker image](https://github.com/ankane/blazer-docker).
 
@@ -71,7 +71,7 @@ Be sure to set a host in `config/environments/production.rb` for emails to work.
 config.action_mailer.default_url_options = {host: "blazer.dokkuapp.com"}
 ```
 
-Schedule checks to run (with cron, [Heroku Scheduler](https://elements.heroku.com/addons/scheduler), etc). The default options are every 5 minutes, 1 hour, or 1 day, which you can customize. For each of these options, set up a task to run.
+Schedule checks to run (with cron, Solid Queue, [Heroku Scheduler](https://elements.heroku.com/addons/scheduler), etc). The default options are every 5 minutes, 1 hour, or 1 day, which you can customize. For each of these options, set up a task to run.
 
 ```sh
 rake blazer:run_checks SCHEDULE="5 minutes"
@@ -92,6 +92,24 @@ Here’s what it looks like with cron.
 0   * * * * rake blazer:run_checks SCHEDULE="1 hour"
 30  7 * * * rake blazer:run_checks SCHEDULE="1 day"
 0   8 * * * rake blazer:send_failing_checks
+```
+
+For Solid Queue, update `config/recurring.yml`.
+
+```yml
+production:
+  blazer_run_checks_5_minutes:
+    command: "Blazer.run_checks(schedule: '5 minutes')"
+    schedule: every 5 minutes
+  blazer_run_checks_1_hour:
+    command: "Blazer.run_checks(schedule: '1 hour')"
+    schedule: every hour
+  blazer_run_checks_1_day:
+    command: "Blazer.run_checks(schedule: '1 day')"
+    schedule: every day at 7:30am
+  blazer_send_failing_checks:
+    command: "Blazer.send_failing_checks"
+    schedule: every day at 8am
 ```
 
 For Slack notifications, create an [incoming webhook](https://slack.com/apps/A0F7XDUAZ-incoming-webhooks) and set:
@@ -125,7 +143,7 @@ end
 
 ### Other
 
-Specify a `before_action` method to run in `blazer.yml`.
+Specify a `before_action` method to run in `config/blazer.yml`.
 
 ```yml
 before_action_method: require_admin
@@ -136,7 +154,7 @@ You can define this method in your `ApplicationController`.
 ```ruby
 def require_admin
   # depending on your auth, something like...
-  redirect_to root_path unless current_user && current_user.admin?
+  redirect_to main_app.root_path unless current_user && current_user.admin?
 end
 ```
 
@@ -154,11 +172,11 @@ CREATE ROLE blazer LOGIN PASSWORD 'secret';
 GRANT CONNECT ON DATABASE dbname TO blazer;
 GRANT USAGE ON SCHEMA public TO blazer;
 GRANT SELECT ON ALL TABLES IN SCHEMA public TO blazer;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO blazer;
+ALTER DEFAULT PRIVILEGES FOR ROLE migrations_role IN SCHEMA public GRANT SELECT ON TABLES TO blazer;
 COMMIT;
 ```
 
-### MySQL
+### MySQL and MariaDB
 
 Create a user with read-only permissions:
 
@@ -213,7 +231,7 @@ SELECT * FROM users WHERE occupation_id = {occupation_id}
 
 Instead of remembering each occupation’s id, users can select occupations by name.
 
-Add a smart variable with:
+Add a smart variable in `config/blazer.yml` with:
 
 ```yml
 smart_variables:
@@ -448,24 +466,22 @@ anomaly_checks: prophet
 
 ### Trend
 
-[Trend](https://trendapi.org/) uses an external service by default, but you can run it on your own infrastructure as well.
-
 Add [trend](https://github.com/ankane/trend) to your Gemfile:
 
 ```ruby
 gem "trend"
 ```
 
+Set the URL to the [API](https://github.com/ankane/trend-api) in an initializer:
+
+```ruby
+Trend.url = "http://localhost:8000"
+```
+
 And add to `config/blazer.yml`:
 
 ```yml
 anomaly_checks: trend
-```
-
-For the [self-hosted API](https://github.com/ankane/trend-api), create an initializer with:
-
-```ruby
-Trend.url = "http://localhost:8000"
 ```
 
 ### AnomalyDetection.rb
@@ -484,7 +500,7 @@ anomaly_checks: anomaly_detection
 
 ## Forecasting
 
-Blazer supports for two different forecasting methods. [Example](https://blazer.dokkuapp.com/queries/18-forecast?forecast=t)
+Blazer supports for two different forecasting methods.
 
 A forecast link will appear for queries that return 2 columns with types timestamp and numeric.
 
@@ -504,24 +520,22 @@ forecasting: prophet
 
 ### Trend
 
-[Trend](https://trendapi.org/) uses an external service by default, but you can run it on your own infrastructure as well.
-
 Add [trend](https://github.com/ankane/trend) to your Gemfile:
 
 ```ruby
 gem "trend"
 ```
 
+Set the URL to the [API](https://github.com/ankane/trend-api) in an initializer:
+
+```ruby
+Trend.url = "http://localhost:8000"
+```
+
 And add to `config/blazer.yml`:
 
 ```yml
 forecasting: trend
-```
-
-For the [self-hosted API](https://github.com/ankane/trend-api), create an initializer with:
-
-```ruby
-Trend.url = "http://localhost:8000"
 ```
 
 ## Uploads
@@ -578,20 +592,21 @@ data_sources:
 - [Apache Ignite](#apache-ignite)
 - [Apache Spark](#apache-spark)
 - [Cassandra](#cassandra)
+- [ClickHouse](#clickhouse)
 - [Druid](#druid)
 - [Elasticsearch](#elasticsearch)
 - [Google BigQuery](#google-bigquery)
 - [IBM DB2 and Informix](#ibm-db2-and-informix)
 - [InfluxDB](#influxdb)
-- [MySQL](#mysql-1)
+- [MySQL and MariaDB](#mysql-and-mariadb-1)
 - [Neo4j](#neo4j)
 - [OpenSearch](#opensearch)
 - [Oracle](#oracle)
 - [PostgreSQL](#postgresql-1)
-- [Presto](#presto)
+- [Presto and Trino](#presto-and-trino)
 - [Salesforce](#salesforce)
-- [Socrata Open Data API (SODA)](#socrata-open-data-api-soda)
 - [Snowflake](#snowflake)
+- [Socrata Open Data API (SODA)](#socrata-open-data-api-soda)
 - [SQLite](#sqlite)
 - [SQL Server](#sql-server)
 
@@ -618,6 +633,7 @@ data_sources:
     # optional settings
     output_location: s3://some-bucket/
     workgroup: primary
+    catalog: s3tablescatalog/some-bucket
     access_key_id: ...
     secret_access_key: ...
     region: ...
@@ -656,11 +672,11 @@ Here’s an example IAM policy:
 }
 ```
 
-You also need to configure [S3 permissions](https://aws.amazon.com/premiumsupport/knowledge-center/access-denied-athena/).
+You also need to configure [S3 permissions](https://repost.aws/knowledge-center/access-denied-athena).
 
 ### Amazon Redshift
 
-Add [activerecord6-redshift-adapter](https://github.com/kwent/activerecord6-redshift-adapter) or [activerecord5-redshift-adapter](https://github.com/ConsultingMD/activerecord5-redshift-adapter) to your Gemfile and set:
+Add [activerecord7-redshift-adapter-pennylane](https://github.com/pennylane-hq/activerecord-adapter-redshift) to your Gemfile and set:
 
 ```yml
 data_sources:
@@ -723,7 +739,7 @@ Use a read-only user. Requires the [Thrift server](https://spark.apache.org/docs
 
 ### Cassandra
 
-Add [cassandra-driver](https://github.com/datastax/ruby-driver) (and [sorted_set](https://github.com/knu/sorted_set) for Ruby 3+) to your Gemfile and set:
+Add [cassandra-driver](https://github.com/datastax/ruby-driver) and [sorted_set](https://github.com/knu/sorted_set) to your Gemfile and set:
 
 ```yml
 data_sources:
@@ -733,9 +749,21 @@ data_sources:
 
 Use a [read-only role](https://docs.datastax.com/en/cql-oss/3.3/cql/cql_using/useSecurePermission.html).
 
+### ClickHouse
+
+Set:
+
+```yml
+data_sources:
+  my_source:
+    adapter: clickhouse
+    url: https://user:password@hostname:8443
+    database: default
+```
+
 ### Druid
 
-Enable [SQL support](http://druid.io/docs/latest/querying/sql.html#configuration) on the broker and set:
+Enable [SQL support](https://druid.apache.org/docs/latest/querying/sql) on the broker and set:
 
 ```yml
 data_sources:
@@ -761,7 +789,7 @@ Use a [read-only role](https://www.elastic.co/guide/en/elasticsearch/reference/c
 
 ### Google BigQuery
 
-Add [google-cloud-bigquery](https://github.com/GoogleCloudPlatform/google-cloud-ruby/tree/master/google-cloud-bigquery) to your Gemfile and set:
+Add [google-cloud-bigquery](https://github.com/GoogleCloudPlatform/google-cloud-ruby/tree/main/google-cloud-bigquery) to your Gemfile and set:
 
 ```yml
 data_sources:
@@ -796,7 +824,7 @@ data_sources:
 
 Use a [read-only user](https://docs.influxdata.com/influxdb/v1.8/administration/authentication_and_authorization/). Supports [InfluxQL](https://docs.influxdata.com/influxdb/v1.8/query_language/explore-data/).
 
-### MySQL
+### MySQL and MariaDB
 
 Add [mysql2](https://github.com/brianmario/mysql2) to your Gemfile (if it’s not there) and set:
 
@@ -806,17 +834,17 @@ data_sources:
     url: mysql2://user:password@hostname:3306/database
 ```
 
-Use a [read-only user](#mysql).
+Use a [read-only user](#mysql-and-mariadb).
 
 ### Neo4j
 
-Add [neo4j-core](https://github.com/neo4jrb/neo4j-core) to your Gemfile and set:
+Add [neo4j-ruby-driver](https://github.com/neo4jrb/neo4j-ruby-driver) to your Gemfile and set:
 
 ```yml
 data_sources:
   my_source:
     adapter: neo4j
-    url: http://user:password@hostname:7474
+    url: bolt://user:password@hostname:7687/database
 ```
 
 Use a [read-only user](https://neo4j.com/docs/cypher-manual/current/access-control/manage-privileges/).
@@ -858,17 +886,19 @@ data_sources:
 
 Use a [read-only user](#postgresql).
 
-### Presto
+### Presto and Trino
 
-Add [presto-client](https://github.com/treasure-data/presto-client-ruby) to your Gemfile and set:
+Add [presto-client](https://github.com/treasure-data/trino-client-ruby/tree/v0.6.5) or [trino-client](https://github.com/treasure-data/trino-client-ruby) to your Gemfile and set:
 
 ```yml
 data_sources:
   my_source:
     url: presto://user@hostname:8080/catalog
+    # or
+    url: trino://user@hostname:8080/catalog
 ```
 
-Use a [read-only user](https://prestodb.io/docs/current/security/built-in-system-access-control.html).
+Use a read-only user for [Presto](https://prestodb.io/docs/current/security/built-in-system-access-control.html) or [Trino](https://trino.io/docs/current/security/built-in-system-access-control.html).
 
 ### Salesforce
 
@@ -893,6 +923,22 @@ SALESFORCE_API_VERSION="41.0"
 
 Use a read-only user. Supports [SOQL](https://developer.salesforce.com/docs/atlas.en-us.soql_sosl.meta/soql_sosl/sforce_api_calls_soql.htm).
 
+### Snowflake
+
+Set:
+
+```yml
+data_sources:
+  my_source:
+    adapter: snowflake2
+    account_id: ...
+    database: ...
+    schema: PUBLIC
+    access_token: ...
+```
+
+Use a [read-only role](https://docs.snowflake.com/en/user-guide/security-access-control-configure.html).
+
 ### Socrata Open Data API (SODA)
 
 Set:
@@ -906,40 +952,6 @@ data_sources:
 ```
 
 Supports [SoQL](https://dev.socrata.com/docs/functions/).
-
-### Snowflake
-
-First, install ODBC. For Homebrew, use:
-
-```sh
-brew install unixodbc
-```
-
-For Ubuntu, use:
-
-```sh
-sudo apt-get install unixodbc-dev
-```
-
-For Heroku, use the [Apt buildpack](https://github.com/heroku/heroku-buildpack-apt) and create an `Aptfile` with:
-
-```text
-unixodbc-dev
-https://sfc-repo.snowflakecomputing.com/odbc/linux/2.21.5/snowflake-odbc-2.21.5.x86_64.deb
-```
-
-> This installs the driver at `/app/.apt/usr/lib/snowflake/odbc/lib/libSnowflake.so`
-
-Then, download the [Snowflake ODBC driver](https://docs.snowflake.net/manuals/user-guide/odbc-download.html). Add [odbc_adapter](https://github.com/localytics/odbc_adapter) to your Gemfile and set:
-
-```yml
-data_sources:
-  my_source:
-    adapter: snowflake
-    conn_str: Driver=/path/to/libSnowflake.so;uid=user;pwd=password;server=host.snowflakecomputing.com
-```
-
-Use a [read-only role](https://docs.snowflake.com/en/user-guide/security-access-control-configure.html).
 
 ### SQLite
 
@@ -1003,10 +1015,6 @@ Have team members who want to learn SQL? Here are a few great, free resources.
 
 For an easy way to group by day, week, month, and more with correct time zones, check out [Groupdate.sql](https://github.com/ankane/groupdate.sql).
 
-## Standalone Version
-
-Looking for a standalone version? Check out [Ghost Blazer](https://github.com/buren/ghost_blazer).
-
 ## Performance
 
 By default, queries take up a request while they are running. To run queries asynchronously, add to your config:
@@ -1037,64 +1045,13 @@ If views are stuck with a `Loading...` message, there might be a problem with st
 override_csp: true
 ```
 
-## Upgrading
-
-### 3.0
-
-Maps now use Mapbox GL JS v1 instead of Mapbox.js, which affects Mapbox billing.
-
-### 2.6
-
-Custom adapters now need to specify how to quote variables in queries (there is no longer a default)
-
-```ruby
-class FooAdapter < Blazer::Adapters::BaseAdapter
-  def quoting
-    :backslash_escape # single quote strings and convert ' to \' and \ to \\
-    # or
-    :single_quote_escape # single quote strings and convert ' to ''
-    # or
-    ->(value) { ... } # custom method
-  end
-end
-```
-
-### 2.3
-
-To archive queries, create a migration
-
-```sh
-rails g migration add_status_to_blazer_queries
-```
-
-with:
-
-```ruby
-add_column :blazer_queries, :status, :string
-Blazer::Query.update_all(status: "active")
-```
-
-### 2.0
-
-To use Slack notifications, create a migration
-
-```sh
-rails g migration add_slack_channels_to_blazer_checks
-```
-
-with:
-
-```ruby
-add_column :blazer_checks, :slack_channels, :text
-```
-
 ## History
 
 View the [changelog](https://github.com/ankane/blazer/blob/master/CHANGELOG.md)
 
 ## Thanks
 
-Blazer uses a number of awesome open source projects, including [Rails](https://github.com/rails/rails/), [Vue.js](https://github.com/vuejs/vue), [jQuery](https://github.com/jquery/jquery), [Bootstrap](https://github.com/twbs/bootstrap), [Selectize](https://github.com/brianreavis/selectize.js), [StickyTableHeaders](https://github.com/jmosbech/StickyTableHeaders), [Stupid jQuery Table Sort](https://github.com/joequery/Stupid-Table-Plugin), and [Date Range Picker](https://github.com/dangrossman/bootstrap-daterangepicker).
+Blazer uses a number of awesome open source projects, including [Rails](https://github.com/rails/rails), [Bootstrap](https://github.com/twbs/bootstrap), [Ace](https://github.com/ajaxorg/ace), [Chart.js](https://github.com/chartjs/Chart.js), [Moment.js](https://github.com/moment/moment), [Sortable](https://github.com/SortableJS/Sortable), [Tom Select](https://github.com/orchidjs/tom-select), and [Date Range Picker](https://github.com/dangrossman/daterangepicker).
 
 Demo data from [MovieLens](https://grouplens.org/datasets/movielens/).
 

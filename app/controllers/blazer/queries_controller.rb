@@ -26,8 +26,15 @@ module Blazer
     end
 
     def index
-      set_queries
-      render json: @queries
+      respond_to do |format|
+        format.html do
+          redirect_to root_path
+        end
+        format.json do
+          set_queries
+          render json: @queries
+        end
+      end
     end
 
     def new
@@ -36,7 +43,7 @@ module Blazer
         name: params[:name]
       )
       if params[:fork_query_id]
-        @query.statement ||= Blazer::Query.find(params[:fork_query_id]).try(:statement)
+        @query.statement ||= Blazer::Query.find(params[:fork_query_id]).statement
       end
       if params[:upload_id]
         upload = Blazer::Upload.find(params[:upload_id])
@@ -120,6 +127,7 @@ module Blazer
           @columns = @result.columns
           @rows = @result.rows
           @error = @result.error
+          @explain = @result.explain
           @just_cached = !@result.error && @result.cached_at.present?
           @chart_type = @result.chart_type
           @cached_at = nil
@@ -160,6 +168,7 @@ module Blazer
           @columns = @result.columns
           @rows = @result.rows
           @error = @result.error
+          @explain = @result.explain
           @cached_at = @result.cached_at
           @just_cached = @result.just_cached
           @chart_type = @result.chart_type
@@ -230,6 +239,9 @@ module Blazer
 
     def set_data_source
       @data_source = Blazer.data_sources[params[:data_source]]
+    rescue Blazer::Error => e
+      raise unless e.message.start_with?("Unknown data source:")
+      render plain: "Unknown data source", status: :not_found
     end
 
     def continue_run

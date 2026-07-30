@@ -8,8 +8,6 @@ module Blazer
 
     clear_helpers
 
-    protect_from_forgery with: :exception
-
     if ENV["BLAZER_PASSWORD"]
       http_basic_authenticate_with name: ENV["BLAZER_USERNAME"], password: ENV["BLAZER_PASSWORD"]
     end
@@ -22,9 +20,11 @@ module Blazer
       before_action Blazer.before_action.to_sym
     end
 
+    protect_from_forgery with: :exception
+
     if Blazer.override_csp
       after_action do
-        response.headers['Content-Security-Policy'] = "default-src 'self' https: 'unsafe-inline' 'unsafe-eval' data: blob:"
+        response.headers["Content-Security-Policy"] = "default-src 'self' https: 'unsafe-inline' 'unsafe-eval' data: blob:"
       end
     end
 
@@ -76,9 +76,9 @@ module Blazer
       if smart_var_data_source
         query = smart_var_data_source.smart_variables[var]
 
-        if query.is_a? Hash
-          smart_var = query.map { |k,v| [v, k] }
-        elsif query.is_a? Array
+        if query.is_a?(Hash)
+          smart_var = query.map { |k, v| [v, k] }
+        elsif query.is_a?(Array)
           smart_var = query.map { |v| [v, v] }
         elsif query
           result = smart_var_data_source.run_statement(query)

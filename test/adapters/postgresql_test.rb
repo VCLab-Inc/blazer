@@ -7,6 +7,41 @@ class PostgresqlTest < ActionDispatch::IntegrationTest
     "postgresql"
   end
 
+  def setup
+    super
+    @@once ||= begin
+      execute "CREATE VIEW users_view AS SELECT * FROM users"
+      execute "CREATE MATERIALIZED VIEW users_matview AS SELECT * FROM users"
+      true
+    end
+  end
+
+  def test_result
+    result = ds.run_statement("SELECT 'world' AS hello")
+    assert_equal [["world"]], result.rows
+    assert_equal ["hello"], result.columns
+    assert_equal ["string"], result.column_types
+  end
+
+  def test_tables_method
+    tables = ds.tables.map { |v| v[:table] }
+    assert_includes tables, "users"
+    assert_includes tables, "users_view"
+    assert_includes tables, "users_matview"
+  end
+
+  def test_schema_method
+    schema = ds.schema
+    columns = schema.to_h { |v| [v[:table], v[:columns]] }
+    expected = [
+      {name: "id", data_type: "bigint"},
+      {name: "name", data_type: "character varying"}
+    ]
+    assert_equal expected, columns["users"]
+    assert_equal expected, columns["users_view"]
+    assert_equal expected, columns["users_matview"]
+  end
+
   def test_run
     assert_result [{"hello" => "world"}], "SELECT 'world' AS hello"
   end
@@ -21,6 +56,10 @@ class PostgresqlTest < ActionDispatch::IntegrationTest
 
   def test_integer
     assert_result [{"hello" => "1"}], "SELECT {var} AS hello", var: "1"
+  end
+
+  def test_leading_zeros
+    assert_result [{"hello" => "0123"}], "SELECT {var} AS hello", var: "0123"
   end
 
   def test_float
@@ -66,5 +105,17 @@ class PostgresqlTest < ActionDispatch::IntegrationTest
 
   def test_quoted
     assert_error "could not determine data type of parameter $1", "SELECT '{var}' AS hello", var: "world"
+  end
+
+  def test_binary_output
+    assert_result [{"bytea" => "\\x68656c6c6f"}], "SELECT 'hello'::bytea"
+  end
+
+  def test_json_output
+    assert_result [{"json" => '{"hello": "world"}'}], %!SELECT '{"hello": "world"}'::json!
+  end
+
+  def test_jsonb_output
+    assert_result [{"jsonb" => '{"hello": "world"}'}], %!SELECT '{"hello": "world"}'::jsonb!
   end
 end

@@ -1,6 +1,11 @@
 require_relative "test_helper"
 
 class ForecastingTest < ActionDispatch::IntegrationTest
+  def setup
+    super
+    Blazer::Query.delete_all
+  end
+
   def test_prophet
     skip unless ENV["TEST_PROPHET"]
 
@@ -13,8 +18,12 @@ class ForecastingTest < ActionDispatch::IntegrationTest
     assert_forecast("trend")
   end
 
+  private
+
   def assert_forecast(forecasting)
-    Blazer.stub(:forecasting, forecasting) do
+    skip unless postgresql?
+
+    with_option(:forecasting, forecasting) do
       query = create_query(statement: "SELECT current_date + n AS day, n FROM generate_series(1, 30) n")
       run_query query.statement, query_id: query.id, forecast: "t"
       assert_match %{"name":"forecast"}, response.body

@@ -107,7 +107,7 @@ module Blazer
       end
 
       unless result
-        comment = "blazer"
+        comment = "blazer".dup
         if options[:user].respond_to?(:id)
           comment << ",user_id:#{options[:user].id}"
         end
@@ -204,7 +204,7 @@ module Blazer
     def adapter_instance
       @adapter_instance ||= begin
         # TODO add required settings to adapters
-        unless settings["url"] || Rails.env.development? || ["bigquery", "athena", "snowflake", "salesforce"].include?(settings["adapter"])
+        unless settings["url"] || Rails.env.local? || ["bigquery", "athena", "snowflake", "salesforce"].include?(settings["adapter"])
           raise Blazer::Error, "Empty url for data source: #{id}"
         end
 
@@ -256,7 +256,7 @@ module Blazer
     def detect_adapter
       scheme = settings["url"].to_s.split("://").first
       case scheme
-      when "presto", "cassandra", "ignite"
+      when "presto", "trino", "cassandra", "ignite"
         scheme
       else
         "sql"

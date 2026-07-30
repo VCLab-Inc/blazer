@@ -1,3 +1,43 @@
+## 3.5.0 (2026-07-27)
+
+- Fixed stored XSS vulnerability - [more info](https://github.com/ankane/blazer/security/advisories/GHSA-m5f6-4589-m89f)
+- Added materialized views to table preview and schema page for Postgres
+- Added support for ClickHouse
+- Added `catalog` setting for Amazon Athena
+- Improved support for Snowflake
+
+## 3.4.0 (2026-04-20)
+
+- Dropped support for Ruby < 3.3 and Rails < 7.2
+
+## 3.3.0 (2025-04-12)
+
+- Fixed error with forecasting with Rails 7.2+
+- Dropped support for Ruby < 3.2 and Rails < 7.1
+
+## 3.2.1 (2025-03-21)
+
+- Added thousands separator to charts
+- Improved i18n for charts
+- Fixed leading zeros in variables
+
+## 3.2.0 (2025-02-23)
+
+- Added support for Trino
+- Added support for `neo4j-ruby-driver` gem
+- Fixed types for SQLite
+- Fixed table preview and schema page for SQLite
+
+## 3.1.0 (2024-10-14)
+
+- Fixed error when Propshaft is installed but not used
+- Dropped support for Ruby < 3.1 and Rails < 7
+
+## 3.0.4 (2024-09-04)
+
+- Improved CSP support
+- Fixed error with Trilogy and Rails 7.2
+
 ## 3.0.3 (2024-01-10)
 
 - Fixed error with Trilogy, non-ASCII column names, and charts
@@ -436,3 +476,20 @@ There was no 1.8.1 release.
 - Added support for Rails 4.2
 - Fixed error with `mysql2` adapter
 - Added `user_class` option
+
+## 0.0.4 (2014-11-19)
+
+- Added timeout
+
+## 0.0.3 (2014-10-08)
+
+- Made editor bigger
+
+## 0.0.2 (2014-10-01)
+
+- Added query to audits
+- Added `user_name` option
+
+## 0.0.1 (2014-09-30)
+
+- First release
